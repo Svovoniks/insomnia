@@ -43,7 +43,7 @@ import * as reactUse from 'react-use';
 
 import { DEFAULT_SIDEBAR_SIZE, getProductName, SORT_ORDERS, type SortOrder, sortOrderName } from '~/common/constants';
 import { generateId } from '~/common/misc';
-import type { GrpcMethodInfo } from '~/main/ipc/grpc';
+import type { GrpcMetadataEntry, GrpcMethodInfo } from '~/main/ipc/grpc';
 import { useRootLoaderData } from '~/root';
 import {
   type Child,
@@ -120,6 +120,7 @@ export interface GrpcRequestState {
   running: boolean;
   requestMessages: GrpcMessage[];
   responseMessages: GrpcMessage[];
+  responseHeaders: GrpcMetadataEntry[];
   status?: StatusObject;
   error?: ServiceError;
   methods: GrpcMethodInfo[];
@@ -129,6 +130,7 @@ const INITIAL_GRPC_REQUEST_STATE = {
   running: false,
   requestMessages: [],
   responseMessages: [],
+  responseHeaders: [],
   status: undefined,
   error: undefined,
   methods: [],
@@ -323,6 +325,13 @@ const Debug = () => {
               : s,
           ),
         );
+      }),
+    [],
+  );
+  useEffect(
+    () =>
+      window.main.on('grpc.metadata', (_, id, responseHeaders) => {
+        setGrpcStates(state => state.map(s => (s.requestId === id ? { ...s, responseHeaders } : s)));
       }),
     [],
   );

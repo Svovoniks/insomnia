@@ -270,6 +270,7 @@ export type RendererOnChannels =
   | 'grpc.data'
   | 'grpc.end'
   | 'grpc.error'
+  | 'grpc.metadata'
   | 'grpc.start'
   | 'grpc.status'
   | 'loggedIn'

@@ -53,6 +53,11 @@ export interface GrpcIpcMessageParams {
   body: GrpcRequestBody;
 }
 
+export interface GrpcMetadataEntry {
+  name: string;
+  value: string;
+}
+
 export interface gRPCBridgeAPI {
   start: (options: GrpcIpcRequestParams) => void;
   sendMessage: (options: GrpcIpcMessageParams) => void;
@@ -446,6 +451,9 @@ export const start = (event: IpcMainEvent, ipcParams: GrpcIpcRequestParams) => {
             filterDisabledOrInvalidMetaData(request.metadata),
             onUnaryResponse(event, request._id),
           );
+          unaryCall.on('metadata', (metadata: Metadata) =>
+            event.reply('grpc.metadata', request._id, metadataToEntries(metadata)),
+          );
           unaryCall.on('status', (status: StatusObject) => event.reply('grpc.status', request._id, status));
           grpcCalls.set(request._id, unaryCall);
         } else if (methodType === 'client') {
@@ -455,6 +463,9 @@ export const start = (event: IpcMainEvent, ipcParams: GrpcIpcRequestParams) => {
             method.responseDeserialize,
             filterDisabledOrInvalidMetaData(request.metadata),
             onUnaryResponse(event, request._id),
+          );
+          clientCall.on('metadata', (metadata: Metadata) =>
+            event.reply('grpc.metadata', request._id, metadataToEntries(metadata)),
           );
           clientCall.on('status', (status: StatusObject) => event.reply('grpc.status', request._id, status));
           grpcCalls.set(request._id, clientCall);
@@ -523,6 +534,7 @@ const onStreamingResponse = (
   call: ClientReadableStream<any> | ClientDuplexStream<any, any>,
   requestId: string,
 ) => {
+  call.on('metadata', (metadata: Metadata) => event.reply('grpc.metadata', requestId, metadataToEntries(metadata)));
   call.on('status', (status: StatusObject) => event.reply('grpc.status', requestId, status));
   call.on('data', data => event.reply('grpc.data', requestId, data));
   call.on('error', (error: ServiceError) => {
@@ -576,6 +588,14 @@ const filterDisabledOrInvalidMetaData = (metadata: GrpcRequestHeader[]): Metadat
   }
   return grpcMetadata;
 };
+
+const metadataToEntries = (metadata: Metadata): GrpcMetadataEntry[] =>
+  Object.keys(metadata.getMap()).flatMap(name =>
+    metadata.get(name).map(value => ({
+      name,
+      value: Buffer.isBuffer(value) ? value.toString('base64') : value,
+    })),
+  );
 
 export type GrpcMethodType = 'unary' | 'server' | 'client' | 'bidi';
 const closeAll = (): void => grpcCalls.forEach(x => x.cancel());
